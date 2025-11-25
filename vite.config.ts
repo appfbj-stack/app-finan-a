@@ -8,7 +8,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      devOptions: {
+        enabled: true
+      },
       manifest: {
         name: 'Finança Fácil',
         short_name: 'Finança',
@@ -20,7 +24,7 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/5501/5501375.png', // Ícone temporário para garantir que o prompt apareça
+            src: 'https://cdn-icons-png.flaticon.com/512/5501/5501375.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'

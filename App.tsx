@@ -10,7 +10,10 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  Download
+  Download,
+  X,
+  Share,
+  PlusSquare
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
@@ -25,7 +28,13 @@ function App() {
   const [view, setView] = useState<ViewState>('dashboard');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // PWA State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(true);
+  const [isIos, setIsIos] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [showIosInstructions, setShowIosInstructions] = useState(false);
   
   // Load initial data and check intro state
   useEffect(() => {
@@ -37,6 +46,19 @@ function App() {
     if (hasSeenIntro === 'true' && loadedTx.length > 0) {
       setShowLanding(false);
     }
+
+    // Detect iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const ios = /iphone|ipad|ipod/.test(userAgent);
+    setIsIos(ios);
+
+    // Detect Standalone (Already Installed)
+    const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    setIsStandalone(isInStandaloneMode);
+    
+    if (isInStandaloneMode) {
+      setShowInstallBanner(false);
+    }
   }, []);
 
   // Save data on change
@@ -44,22 +66,33 @@ function App() {
     saveTransactions(transactions);
   }, [transactions]);
 
-  // PWA Install Prompt Handler
+  // PWA Install Prompt Handler (Android/Desktop)
   useEffect(() => {
     const handler = (e: any) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
+      // Ensure banner is shown if prompt is available
+      if (!isStandalone) setShowInstallBanner(true);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+  }, [isStandalone]);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (isIos) {
+      setShowIosInstructions(true);
+      return;
+    }
+
+    if (!deferredPrompt) {
+        // Fallback or specific logic if prompt isn't ready yet but user clicked
+        alert("Para instalar, procure a opção 'Adicionar à Tela Inicial' no menu do seu navegador.");
+        return;
+    }
     
     // Show the install prompt
     deferredPrompt.prompt();
@@ -70,6 +103,7 @@ function App() {
     if (outcome === 'accepted') {
       console.log('User accepted the install prompt');
       setDeferredPrompt(null);
+      setShowInstallBanner(false);
     }
   };
 
@@ -144,6 +178,35 @@ function App() {
 
   const renderDashboard = () => (
     <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+      
+      {/* Install Banner (Only if not installed and (prompt available OR is iOS)) */}
+      {showInstallBanner && !isStandalone && (deferredPrompt || isIos) && (
+        <div className="bg-blue-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-500/20 relative overflow-hidden">
+          <div className="flex items-start justify-between relative z-10">
+            <div className="flex-1">
+              <h3 className="font-bold text-lg mb-1">Instalar Aplicativo</h3>
+              <p className="text-blue-100 text-sm mb-3 leading-relaxed">
+                Adicione à tela inicial para usar sem internet e em tela cheia.
+              </p>
+              <button 
+                onClick={handleInstallClick}
+                className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold text-sm shadow-sm active:scale-95 transition-transform"
+              >
+                {isIos ? 'Ver como instalar' : 'Instalar agora'}
+              </button>
+            </div>
+            <button 
+              onClick={() => setShowInstallBanner(false)}
+              className="p-1 bg-blue-500/50 rounded-full hover:bg-blue-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          {/* Decor */}
+          <div className="absolute -right-4 -bottom-4 bg-white/10 w-24 h-24 rounded-full blur-xl"></div>
+        </div>
+      )}
+
       {/* Balance Card */}
       <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-6 text-white shadow-xl shadow-slate-900/20">
         <p className="text-slate-400 text-sm font-medium mb-1">Saldo Total</p>
@@ -280,7 +343,8 @@ function App() {
       
       <div className="space-y-4">
         <Card className="!p-0 overflow-hidden">
-             {deferredPrompt && (
+             {/* Show Settings Install Button as well if applicable */}
+             {(deferredPrompt || (isIos && !isStandalone)) && (
                 <button 
                   onClick={handleInstallClick}
                   className="w-full flex items-center justify-between p-4 hover:bg-emerald-50 bg-emerald-50/50 transition-colors border-b border-emerald-100"
@@ -291,7 +355,7 @@ function App() {
                     </div>
                     <div className="text-left">
                       <p className="font-semibold text-slate-700">Instalar Aplicativo</p>
-                      <p className="text-xs text-slate-500">Adicionar à tela inicial para acesso offline</p>
+                      <p className="text-xs text-slate-500">Adicionar à tela inicial</p>
                     </div>
                   </div>
                   <ChevronRight size={18} className="text-slate-400" />
@@ -320,7 +384,7 @@ function App() {
                 <Wallet className="text-slate-400" size={24} />
             </div>
             <p className="text-slate-900 font-bold">Finança Fácil</p>
-            <p className="text-xs text-slate-400">Versão 1.0.2</p>
+            <p className="text-xs text-slate-400">Versão 1.1.0</p>
         </div>
       </div>
     </div>
@@ -342,7 +406,7 @@ function App() {
             onClick={() => setView('settings')}
             className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs hover:bg-slate-200 transition-colors"
           >
-            U
+            A
           </button>
         </div>
       </header>
@@ -396,6 +460,45 @@ function App() {
         onClose={() => setIsModalOpen(false)} 
         onSave={handleAddTransaction} 
       />
+
+      {/* iOS Instruction Modal */}
+      {showIosInstructions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm animate-in zoom-in-95">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-bold text-slate-800">Como instalar no iPhone</h3>
+              <button 
+                onClick={() => setShowIosInstructions(false)}
+                className="p-1 bg-slate-100 rounded-full hover:bg-slate-200"
+              >
+                <X size={20} className="text-slate-600" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-slate-600">
+                <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm">1</span>
+                <p>Toque no botão <Share size={16} className="inline mx-1" /> <strong>Compartilhar</strong> na barra inferior do Safari.</p>
+              </div>
+              <div className="flex items-center gap-3 text-slate-600">
+                <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm">2</span>
+                <p>Role para baixo e toque em <PlusSquare size={16} className="inline mx-1" /> <strong>Adicionar à Tela de Início</strong>.</p>
+              </div>
+              <div className="flex items-center gap-3 text-slate-600">
+                <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm">3</span>
+                <p>Confirme clicando em <strong>Adicionar</strong> no canto superior.</p>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setShowIosInstructions(false)}
+              className="mt-6 w-full bg-blue-600 text-white py-3 rounded-xl font-semibold"
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
