@@ -20,8 +20,9 @@ export default defineConfig({
         theme_color: '#10b981',
         background_color: '#f8fafc',
         display: 'standalone',
-        orientation: 'portrait',
+        scope: '/',
         start_url: '/',
+        orientation: 'portrait',
         icons: [
           {
             src: 'https://cdn-icons-png.flaticon.com/512/5501/5501375.png',

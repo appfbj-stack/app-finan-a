@@ -13,7 +13,9 @@ import {
   Download,
   X,
   Share,
-  PlusSquare
+  PlusSquare,
+  MoreVertical,
+  Monitor
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
@@ -34,7 +36,7 @@ function App() {
   const [showInstallBanner, setShowInstallBanner] = useState(true);
   const [isIos, setIsIos] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
-  const [showIosInstructions, setShowIosInstructions] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   
   // Load initial data and check intro state
   useEffect(() => {
@@ -69,42 +71,30 @@ function App() {
   // PWA Install Prompt Handler (Android/Desktop)
   useEffect(() => {
     const handler = (e: any) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
-      // Ensure banner is shown if prompt is available
-      if (!isStandalone) setShowInstallBanner(true);
+      // We don't rely solely on this event anymore to show the banner
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, [isStandalone]);
+  }, []);
 
   const handleInstallClick = async () => {
-    if (isIos) {
-      setShowIosInstructions(true);
+    // Scenario 1: We captured the browser's native prompt (Android/Chrome Desktop)
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setShowInstallBanner(false);
+      }
       return;
     }
 
-    if (!deferredPrompt) {
-        // Fallback or specific logic if prompt isn't ready yet but user clicked
-        alert("Para instalar, procure a opção 'Adicionar à Tela Inicial' no menu do seu navegador.");
-        return;
-    }
-    
-    // Show the install prompt
-    deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-      setDeferredPrompt(null);
-      setShowInstallBanner(false);
-    }
+    // Scenario 2: iOS or Browser didn't fire event (Manual Instructions needed)
+    setShowInstructions(true);
   };
 
   // Derived State (Calculations)
@@ -179,8 +169,8 @@ function App() {
   const renderDashboard = () => (
     <div className="space-y-6 pb-24 animate-in fade-in duration-500">
       
-      {/* Install Banner (Only if not installed and (prompt available OR is iOS)) */}
-      {showInstallBanner && !isStandalone && (deferredPrompt || isIos) && (
+      {/* Install Banner (Always visible if not standalone) */}
+      {showInstallBanner && !isStandalone && (
         <div className="bg-blue-600 rounded-2xl p-4 text-white shadow-lg shadow-blue-500/20 relative overflow-hidden">
           <div className="flex items-start justify-between relative z-10">
             <div className="flex-1">
@@ -192,7 +182,7 @@ function App() {
                 onClick={handleInstallClick}
                 className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold text-sm shadow-sm active:scale-95 transition-transform"
               >
-                {isIos ? 'Ver como instalar' : 'Instalar agora'}
+                Instalar agora
               </button>
             </div>
             <button 
@@ -343,8 +333,8 @@ function App() {
       
       <div className="space-y-4">
         <Card className="!p-0 overflow-hidden">
-             {/* Show Settings Install Button as well if applicable */}
-             {(deferredPrompt || (isIos && !isStandalone)) && (
+             {/* Show Settings Install Button if not standalone */}
+             {!isStandalone && (
                 <button 
                   onClick={handleInstallClick}
                   className="w-full flex items-center justify-between p-4 hover:bg-emerald-50 bg-emerald-50/50 transition-colors border-b border-emerald-100"
@@ -384,7 +374,7 @@ function App() {
                 <Wallet className="text-slate-400" size={24} />
             </div>
             <p className="text-slate-900 font-bold">Finança Fácil</p>
-            <p className="text-xs text-slate-400">Versão 1.1.0</p>
+            <p className="text-xs text-slate-400">Versão 1.1.2</p>
         </div>
       </div>
     </div>
@@ -461,40 +451,69 @@ function App() {
         onSave={handleAddTransaction} 
       />
 
-      {/* iOS Instruction Modal */}
-      {showIosInstructions && (
+      {/* Instruction Modal (Generic for both iOS and Android Fallback) */}
+      {showInstructions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm animate-in zoom-in-95">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold text-slate-800">Como instalar no iPhone</h3>
+              <h3 className="text-xl font-bold text-slate-800">Instalar Aplicativo</h3>
               <button 
-                onClick={() => setShowIosInstructions(false)}
+                onClick={() => setShowInstructions(false)}
                 className="p-1 bg-slate-100 rounded-full hover:bg-slate-200"
               >
                 <X size={20} className="text-slate-600" />
               </button>
             </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 text-slate-600">
-                <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm">1</span>
-                <p>Toque no botão <Share size={16} className="inline mx-1" /> <strong>Compartilhar</strong> na barra inferior do Safari.</p>
-              </div>
-              <div className="flex items-center gap-3 text-slate-600">
-                <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm">2</span>
-                <p>Role para baixo e toque em <PlusSquare size={16} className="inline mx-1" /> <strong>Adicionar à Tela de Início</strong>.</p>
-              </div>
-              <div className="flex items-center gap-3 text-slate-600">
-                <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm">3</span>
-                <p>Confirme clicando em <strong>Adicionar</strong> no canto superior.</p>
-              </div>
+            <div className="space-y-6">
+              
+              {/* iOS Instructions */}
+              {isIos && (
+                <div className="space-y-4">
+                  <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">No iPhone / iPad</p>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0">1</span>
+                    <p>Toque no botão <Share size={16} className="inline mx-1 text-blue-500" /> <strong>Compartilhar</strong> na barra inferior do Safari.</p>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0">2</span>
+                    <p>Role para baixo e toque em <PlusSquare size={16} className="inline mx-1" /> <strong>Adicionar à Tela de Início</strong>.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Android/Chrome Instructions */}
+              {!isIos && (
+                <div className="space-y-4">
+                  <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">No Android / Chrome</p>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0">1</span>
+                    <p>Toque no menu do navegador <MoreVertical size={16} className="inline mx-1" /> (três pontinhos no canto superior).</p>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0">2</span>
+                    <p>Selecione <strong>Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.</p>
+                  </div>
+                </div>
+              )}
+
+               {/* PC/Desktop Instructions */}
+               {!isIos && (
+                <div className="space-y-4 border-t pt-4">
+                  <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">No Computador</p>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <span className="bg-slate-100 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0"><Monitor size={16} /></span>
+                    <p>Procure pelo ícone de instalação <Download size={16} className="inline mx-1" /> na barra de endereço ou clique no menu e escolha "Instalar Finança Fácil".</p>
+                  </div>
+                </div>
+              )}
             </div>
             
             <button 
-              onClick={() => setShowIosInstructions(false)}
-              className="mt-6 w-full bg-blue-600 text-white py-3 rounded-xl font-semibold"
+              onClick={() => setShowInstructions(false)}
+              className="mt-6 w-full bg-slate-100 text-slate-700 hover:bg-slate-200 py-3 rounded-xl font-semibold transition-colors"
             >
-              Entendi
+              Fechar
             </button>
           </div>
         </div>
