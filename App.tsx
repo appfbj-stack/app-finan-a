@@ -9,7 +9,8 @@ import {
   PieChart as PieChartIcon,
   Settings,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
@@ -24,6 +25,7 @@ function App() {
   const [view, setView] = useState<ViewState>('dashboard');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
   // Load initial data and check intro state
   useEffect(() => {
@@ -41,6 +43,35 @@ function App() {
   useEffect(() => {
     saveTransactions(transactions);
   }, [transactions]);
+
+  // PWA Install Prompt Handler
+  useEffect(() => {
+    const handler = (e: any) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    
+    // Show the install prompt
+    deferredPrompt.prompt();
+    
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+      setDeferredPrompt(null);
+    }
+  };
 
   // Derived State (Calculations)
   const totals = useMemo(() => {
@@ -249,6 +280,24 @@ function App() {
       
       <div className="space-y-4">
         <Card className="!p-0 overflow-hidden">
+             {deferredPrompt && (
+                <button 
+                  onClick={handleInstallClick}
+                  className="w-full flex items-center justify-between p-4 hover:bg-emerald-50 bg-emerald-50/50 transition-colors border-b border-emerald-100"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-emerald-100 p-2 rounded-full text-emerald-600">
+                      <Download size={20} />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-slate-700">Instalar Aplicativo</p>
+                      <p className="text-xs text-slate-500">Adicionar à tela inicial para acesso offline</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400" />
+                </button>
+             )}
+
              <button 
                 onClick={handleLogout}
                 className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
@@ -271,7 +320,7 @@ function App() {
                 <Wallet className="text-slate-400" size={24} />
             </div>
             <p className="text-slate-900 font-bold">Finança Fácil</p>
-            <p className="text-xs text-slate-400">Versão 1.0.1</p>
+            <p className="text-xs text-slate-400">Versão 1.0.2</p>
         </div>
       </div>
     </div>
